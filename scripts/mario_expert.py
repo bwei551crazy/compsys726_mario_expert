@@ -69,6 +69,8 @@ class MarioController(MarioEnvironment):
         self.stuck = 0 #general stuck
         self.stuck_on_pipe = 0 #specific scenario
         self.hole_count = 0
+        self.prev_x = 0
+        self.prev_y = 0
     
 
     def run_action(self, action: int, duration: int = None, action2: int = None, duration2: int = None, sprint: bool = True) -> None:
@@ -88,7 +90,7 @@ class MarioController(MarioEnvironment):
 
         if self.stuck == 4:
             self.pyboy.send_input(self.valid_actions[1])
-            for _ in range(8):
+            for _ in range(5):
                 self.pyboy.tick()
             self.pyboy.send_input(self.release_button[1])
             #self.pyboy.tick()
@@ -108,12 +110,18 @@ class MarioController(MarioEnvironment):
                 self.pyboy.send_input(self.valid_actions[action2])
                 for _ in range(duration2):
                     self.pyboy.tick()
-                #self.pyboy.send_input(self.release_button[action2])   
+                self.pyboy.send_input(self.release_button[action2])   
             self.pyboy.tick()
         #used mainly for consecutive 
             
         self.pyboy.send_input(self.release_button[action])
         #self.pyboy.send_input(self.release_button[2])
+        # if action2 != None or duration2 != None:
+            # self.pyboy.send_input(self.valid_actions[action2])
+            # for _ in range(duration2):
+            #     self.pyboy.tick()
+            # self.pyboy.send_input(self.release_button[action2])
+        
         if action2 != None:
             self.pyboy.send_input(self.release_button[action2])   
         for _ in range(duration): 
@@ -150,14 +158,23 @@ class MarioExpert:
         state = self.environment.game_state()
         frame = self.environment.grab_frame()
         game_area = self.environment.game_area()
+        #print(game_area.shape)
 
         hole_found = self.find_holes()
         found_qBlocks = self.find_qBlocks()
         on_pipe = self.on_pipe()
+        find_mario = self.find_mario()
 
-        #print(game_area)
         self.environment.curr_mario_x = self.environment.get_x_position() #true position 
         prev_mario_x = self.environment.prev_mario_x
+
+        if find_mario is not None:
+            x, y = find_mario
+            self.environment.prev_x = x
+            self.environment.prev_y = y
+        else:
+            x = self.environment.prev_x
+            y = self.environment.prev_y
 
         #stuck = self.environment.stuck
         # Implement your code here to choose the best action
@@ -186,14 +203,14 @@ class MarioExpert:
                     #print('goomba jump')
                     self.environment.prev_mario_x = self.environment.curr_mario_x
                     return (4, 1, None, None, False)
-                elif (mario_x-goomba_x) < 10 and (mario_x-goomba_x) > 0 and (goomba_y-mario_y) < 3:
+                elif (goomba_x - mario_x) > -10 and (goomba_x-mario_x) < 0 and (goomba_y-mario_y) < 3:
                     print("avoid left goomba")
                     self.environment.prev_mario_x = self.environment.curr_mario_x
                     return (4, 1, None, None, False)
                 elif mario_y - goomba_y > 5 and goomba_x - mario_x < 20:
                     #print("goomba above")
                     self.environment.prev_mario_x = self.environment.curr_mario_x
-                    return (1, 10, None, None, True) 
+                    return (1, 5, None, None, True) 
             #Turtle detection
             elif self.environment._read_m(address) == 0x04: 
                 turtle_addr = int(f"0xD1{i}3", 16) #x position
@@ -215,7 +232,7 @@ class MarioExpert:
                 bat_y = self.environment._read_m(bat_addr)
                 if (bat_x-mario_x) < 12 and (bat_x - mario_x) > 0 and (bat_y-mario_y) < 3:
                     self.environment.prev_mario_x = self.environment.curr_mario_x
-                    return (4, 9, None, None, False)
+                    return (4, 9, None, None, True)
                 elif mario_y - bat_y > 5 and bat_x - mario_x < 20:
                     self.environment.prev_mario_x = self.environment.curr_mario_x
                     return (1, 5, None, None, True)
@@ -243,7 +260,8 @@ class MarioExpert:
 
         # found_qBlocks = self.find_qBlocks()
         # on_pipe = self.on_pipe()
-        print("stuck val", self.environment.stuck)
+        #print("stuck val", self.environment.stuck)
+        print(game_area)
         if hole_found:
             self.environment.prev_mario_x = self.environment.curr_mario_x
             return (4, 14, 2, 1, False) 
@@ -256,20 +274,32 @@ class MarioExpert:
         elif on_pipe:
             self.environment.stuck += 1
             self.environment.prev_mario_x = self.environment.curr_mario_x
-            return (0, 8, None, None, False)
+            return (0, 8, 1, 2, False)
         
+        elif self.environment._read_m(0xC207) == 0x02 and np.all(game_area[:,0] == 10):
+            return (2)
+        
+        elif (self.environment.curr_mario_x == prev_mario_x) and (game_area[x][19] == 10  or game_area[9][y - 2] == 10) and np.all(game_area[:, 0] == 10):
+            print("unique left jump")
+            #self.environment.stuck += 1
+            self.environment.prev_mario_x = self.environment.curr_mario_x
+            return (1, 8, 4, 15, True)
         elif self.environment.stuck == 3:
             self.environment.stuck +=1
             print('wall jump') 
             self.environment.prev_mario_x = self.environment.curr_mario_x
             return (4, 12, 2, 1, True)
-        elif (self.environment.curr_mario_x == prev_mario_x): 
-            #print("stuck")
+        
+        elif (self.environment.curr_mario_x == prev_mario_x):
+            print("stuck")
             # print("prev: ", self.environment.prev_mario_x)
             # print("Curr: ", self.environment.curr_mario_x)
             self.environment.stuck += 1
             self.environment.prev_mario_x = self.environment.curr_mario_x
-            return (2, 2, None, None, False)
+            if hole_found and np.all(game_area[:, 0] == 10):
+                return (4, 14, 2, 1, False) 
+            else:
+                return (2, 2, None, None, False)
         # elif found_qBlocks:
         #     print("here 2")
         #     self.environment.stuck += 1
@@ -279,7 +309,7 @@ class MarioExpert:
             #print("just sprinting")
             self.environment.prev_mario_x = self.environment.curr_mario_x
             self.environment.stuck = 0
-            return (2, 2, None, None, False)
+            return 2
             
 
         # if self.environment._read_m(0xC20A): #Mario on ground flag. 
@@ -378,8 +408,10 @@ class MarioExpert:
             mario_y = find_mario[1]
             if mario_x > 14:
                 return False
-            if self.environment.stuck_on_pipe == 2:
+            if self.environment.stuck_on_pipe == 5:
                 self.environment.stuck_on_pipe = 0
+            if self.environment.stuck_on_pipe > 2:
+                self.environment.stuck_on_pipe += 1
                 return False
             if game_area[mario_x+1][mario_y] == 14 and game_area[mario_x+1][mario_y - 1] == 14:
                 self.environment.stuck_on_pipe += 1
