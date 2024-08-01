@@ -91,7 +91,7 @@ class MarioController(MarioEnvironment):
             for _ in range(8):
                 self.pyboy.tick()
             self.pyboy.send_input(self.release_button[1])
-            self.pyboy.tick()
+            #self.pyboy.tick()
             self.stuck = 0
 
         if sprint == True:
