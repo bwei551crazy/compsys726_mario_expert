@@ -274,7 +274,7 @@ class MarioExpert:
         if hole_found:
             print("Here 1")
             self.environment.prev_mario_x = self.environment.curr_mario_x
-            return (2, 2, 4, 20, False) 
+            return (2, 2, 4, 19, False) #19 had best result rather than 20? 
         
         elif found_qBlocks:
             print("here 2")
