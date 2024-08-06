@@ -115,12 +115,6 @@ class MarioController(MarioEnvironment):
         #used mainly for consecutive 
             
         self.pyboy.send_input(self.release_button[action])
-        #self.pyboy.send_input(self.release_button[2])
-        # if action2 != None or duration2 != None:
-            # self.pyboy.send_input(self.valid_actions[action2])
-            # for _ in range(duration2):
-            #     self.pyboy.tick()
-            # self.pyboy.send_input(self.release_button[action2])
         
         if action2 != None:
             self.pyboy.send_input(self.release_button[action2])   
@@ -183,8 +177,7 @@ class MarioExpert:
 
         mario_x = self.environment._read_m(0xC202) #relative
         mario_y = self.environment._read_m(0xC201)
-        #print("mario prev pos: ", prev_mario_x)    
-        #self.environment.curr_mario_x = self.environment.get_x_position() #true position   
+ 
         for i in range(10): # loops through 9 indexes of the object table 
             address = int(f"0xD1{i}0", 16) #convert the string to hex
 
@@ -199,15 +192,20 @@ class MarioExpert:
                 #print("mario", mario_y)
                 #print("goomba", goomba_y)
 
-                if (goomba_x-mario_x) < 13 and (goomba_x - mario_x) > 0 and (goomba_y-mario_y) < 3 :
-                    #print('goomba jump')
+                if (goomba_x-mario_x) < 13 and (goomba_x - mario_x) > 0 and  0 < (goomba_y-mario_y) < 3 :
+                    print('goomba jump')
                     self.environment.prev_mario_x = self.environment.curr_mario_x
                     return (4, 1, None, None, False)
-                elif (goomba_x - mario_x) > -10 and (goomba_x-mario_x) < 0 and (goomba_y-mario_y) < 3:
-                    print("avoid left goomba")
+                #for the nasty goombas who are underneath mario
+                elif (goomba_x - mario_x) < 13 and (goomba_x - mario_x) > 0 and -3 <= (goomba_y - mario_y) < 0:
                     self.environment.prev_mario_x = self.environment.curr_mario_x
                     return (4, 1, None, None, False)
-                elif mario_y - goomba_y > 5 and goomba_x - mario_x < 20:
+                #for gooombas that are located to left of mario
+                elif -5 < (goomba_x - mario_x) < 0 and 0 < (goomba_y - mario_y) < 3:
+                    print('goomba jump when located left')
+                    self.environment.prev_mario_x = self.environment.curr_mario_x
+                    return (2, 2, 4, 4, False)
+                elif mario_y - goomba_y > 5 and  13 < goomba_x - mario_x < 20:
                     #print("goomba above")
                     self.environment.prev_mario_x = self.environment.curr_mario_x
                     return (1, 5, None, None, True) 
@@ -232,10 +230,14 @@ class MarioExpert:
                 bat_y = self.environment._read_m(bat_addr)
                 if (bat_x-mario_x) < 12 and (bat_x - mario_x) > 0 and (bat_y-mario_y) < 3:
                     self.environment.prev_mario_x = self.environment.curr_mario_x
-                    return (4, 9, None, None, True)
+                    return (4, 14, 2, 1, True)
+                # elif 0<= (bat_x) <= 2 and (bat_y - mario_y) < 3:
+                #     self.environment.prev_mario_x = self.environment.curr_mario_x
+                #     return (1, 5, None, None, True)
                 elif mario_y - bat_y > 5 and bat_x - mario_x < 20:
                     self.environment.prev_mario_x = self.environment.curr_mario_x
-                    return (1, 5, None, None, True)
+                    return (1, 8, None, None, True)
+            #picks powerups. Currently mushrooms
             elif self.environment._read_m(address) == 0x28 or self.environment._read_m(address) == 0x29:
                 powerup_addr = int(f"0xD1{i}3", 16)
                 powerup_x = self.environment._read_m(powerup_addr)
@@ -248,38 +250,53 @@ class MarioExpert:
                     self.environment.prev_mario_x = self.environment.curr_mario_x
                     return (1, 5, None, None, True)
                 elif mario_y - powerup_y > 5 and powerup_x - mario_x < 20:
-                    return (4, 8, 2, 1, False)
-
+                    return (4, 8, 2, 1, False) 
 
             #Bee detection
-            # elif self.environment._read_m(address) == 0x42:
-            #     bee_addr = int(f"0xD1{i}3", 16)
-            #     bee_x = self.environment._read_m(bee_addr)
-            #     bee_addr = int(f"0xD1{i}2", 16)
-            #     bee_y = self.environment._read_m(bee_addr)
+            elif self.environment._read_m(address) == 0x42:
+                bee_addr = int(f"0xD1{i}3", 16)
+                bee_x = self.environment._read_m(bee_addr)
+                bee_addr = int(f"0xD1{i}2", 16)
+                bee_y = self.environment._read_m(bee_addr)
+                if (bee_x-mario_x) < 12 and (bee_x - mario_x) > 0 and (bee_y-mario_y) < 3:
+                    self.environment.prev_mario_x = self.environment.curr_mario_x
+                    return (4, 9, None, None, True)
+                elif mario_y - bee_y > 5 and bee_x - mario_x < 20:
+                    self.environment.prev_mario_x = self.environment.curr_mario_x
+                    return (4, 15, None, None, True)
 
         # found_qBlocks = self.find_qBlocks()
         # on_pipe = self.on_pipe()
-        #print("stuck val", self.environment.stuck)
+        # print("stuck val", self.environment.stuck)
         print(game_area)
+
+        
         if hole_found:
+            print("Here 1")
             self.environment.prev_mario_x = self.environment.curr_mario_x
-            return (4, 14, 2, 1, False) 
+            return (2, 2, 4, 20, False) 
+        
         elif found_qBlocks:
             print("here 2")
-            self.environment.stuck += 1
             self.environment.prev_mario_x = self.environment.curr_mario_x
             return (4, 8, None, None, False)
         
         elif on_pipe:
+            print("on pipe")
+            print("stuck val", self.environment.stuck)
             self.environment.stuck += 1
             self.environment.prev_mario_x = self.environment.curr_mario_x
-            return (0, 8, 1, 2, False)
+            return (0, 8, 2, 2, False)
         
-        elif self.environment._read_m(0xC207) == 0x02 and np.all(game_area[:,0] == 10):
-            return (2)
+        elif on_pipe == False:
+            print("GET OFF PIPE")
+            self.environment.prev_mario_x = self.environment.curr_mario_x
+            return (4, 8, 2, 1, True)
+        # elif self.environment._read_m(0xC207) == 0x02 and np.all(game_area[:,0] == 10):
+        #     return (2)
         
-        elif (self.environment.curr_mario_x == prev_mario_x) and (game_area[x][19] == 10  or game_area[9][y - 2] == 10) and np.all(game_area[:, 0] == 10):
+        #used to do the left jump 1st and 2nd time in special room #2 in 1-1
+        elif (self.environment.curr_mario_x == prev_mario_x) and ((game_area[x][19] == 10 and x == 13)   or game_area[9][y - 2] == 10) and np.all(game_area[:, 0] == 10):
             print("unique left jump")
             #self.environment.stuck += 1
             self.environment.prev_mario_x = self.environment.curr_mario_x
@@ -288,7 +305,7 @@ class MarioExpert:
             self.environment.stuck +=1
             print('wall jump') 
             self.environment.prev_mario_x = self.environment.curr_mario_x
-            return (4, 12, 2, 1, True)
+            return (4, 12, 2, 2, False)  #original 4, 12, 2, 1, True
         
         elif (self.environment.curr_mario_x == prev_mario_x):
             print("stuck")
@@ -296,8 +313,12 @@ class MarioExpert:
             # print("Curr: ", self.environment.curr_mario_x)
             self.environment.stuck += 1
             self.environment.prev_mario_x = self.environment.curr_mario_x
-            if hole_found and np.all(game_area[:, 0] == 10):
-                return (4, 14, 2, 1, False) 
+            
+            #For a very specific scenario in special room #2 on level 1-1
+            if np.all(game_area[x-2, 5:7] == 0) and np.all(game_area[:, 0] == 10):
+                print("Unique right jump")
+                self.environment.stuck = 0
+                return (4, 14, 2, 2, False) 
             else:
                 return (2, 2, None, None, False)
         # elif found_qBlocks:
@@ -306,10 +327,14 @@ class MarioExpert:
         #     self.environment.prev_mario_x = self.environment.curr_mario_x
         #     return (4, 8, None, None, False)
         else: 
-            #print("just sprinting")
+            print("just sprinting")
+            #when the bottom of mario and right next to bottom of mario has ground while in air, hold down button
+            if np.all(game_area[15, y:y+2]==10) and self.environment._read_m(0xC20A) == 0x00:
+                print("Stay down")
+                return (0, 5, None, None, False)
             self.environment.prev_mario_x = self.environment.curr_mario_x
             self.environment.stuck = 0
-            return 2
+            return (2, 1, None, None, True)
             
 
         # if self.environment._read_m(0xC20A): #Mario on ground flag. 
@@ -377,6 +402,8 @@ class MarioExpert:
         """
         self.video.release()
 
+
+    #finding coins or qblocks
     def find_qBlocks(self) -> bool:
         game_area = self.environment.game_area()
         find_mario = self.find_mario()
@@ -385,20 +412,23 @@ class MarioExpert:
            # print(mario_x)
             #print("hello", mario_y)
         #print(game_area)
-        for i in range(15):
-            for j in range(19):
-                if game_area[i,j] == 13:
+        for i in range(15, -1, -1):
+            for j in range(19, -1, -1):
+                #detects both coins (5) or mystery blocks (5)
+                if game_area[i,j] == 13 or game_area[i,j] == 5:
                     qblock_x = i
                     qblock_y = j
                     #print(f"block_x {i} and block_y {j}")
-                    
+        print(f"Qblock_x {qblock_x}, qblock_y {qblock_y}")     
         if find_mario is not None:
             mario_x, mario_y = find_mario
-            if 0 <= (qblock_y-mario_y) < 2 and (mario_x > qblock_x): #y is vertical. x is horizontal. 
-                #print("found block")
+            print(f"mario_x {mario_x}, mario_y {mario_y}") 
+            if  0<=(mario_y - qblock_y) < 2  and  0 <= (mario_x-qblock_x) < 5: #y is vertical. x is horizontal. ORIGINAL: (qblock_y==mario_y). 
+                print("found block")
                 return True
             else:
                 return False 
+        
 
     def on_pipe(self) -> bool:
         game_area = self.environment.game_area()
@@ -408,12 +438,16 @@ class MarioExpert:
             mario_y = find_mario[1]
             if mario_x > 14:
                 return False
-            if self.environment.stuck_on_pipe == 5:
+            if self.environment.stuck_on_pipe == 2:
+                print("Here 5")
                 self.environment.stuck_on_pipe = 0
-            if self.environment.stuck_on_pipe > 2:
-                self.environment.stuck_on_pipe += 1
                 return False
-            if game_area[mario_x+1][mario_y] == 14 and game_area[mario_x+1][mario_y - 1] == 14:
+            if self.environment.stuck_on_pipe == 1 and (game_area[mario_x+1][mario_y] == 14 or game_area[mario_x+1][mario_y - 1] == 14):
+                print("here 6")
+                self.environment.stuck_on_pipe += 1
+                #self.environment.stuck_on_pipe = 0
+                return True
+            if game_area[mario_x+1][mario_y] == 14 or game_area[mario_x+1][mario_y - 1] == 14:
                 self.environment.stuck_on_pipe += 1
                 return True
         else:
@@ -430,7 +464,9 @@ class MarioExpert:
                     return (i, j) #returns the bottom 2 values of mario's position
         
         return None
-                
+
+    
+    #may need to change from bool to integer where each represent a different style of holes. 
     def find_holes(self) -> bool:
         game_area = self.environment.game_area()
         
@@ -443,12 +479,12 @@ class MarioExpert:
         
         #print(game_area)
         #may need to make this hole detection better. Just detecting whether a few indices away from mario on the last row, it contains 0 
-        if mario_y >= 18 and mario_x > 12:
+        if mario_y >= 18 and mario_x > 11:
             return False
         elif self.find_qBlocks():
              return False
         
-        elif np.all(game_area[mario_x+1: mario_x + 4, mario_y+1:mario_y+3] == 0) and self.environment._read_m(0xC20A):
+        elif np.all(game_area[mario_x+1: mario_x + 5, mario_y+1:mario_y+3] == 0) and self.environment._read_m(0xC20A):
             print("block jumping")
             return True
         
