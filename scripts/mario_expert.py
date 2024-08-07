@@ -109,6 +109,12 @@ class MarioController(MarioEnvironment):
         for _ in range(duration):
             if action2 != None or duration2 != None:
                 self.pyboy.send_input(self.valid_actions[action2])
+                if 1305 <= self.curr_mario_x <= 1400:
+                    print("go down 2nd uniquue pipe")
+                    self.pyboy.send_input(self.valid_actions[0])
+                    for _ in range(8):
+                        self.pyboy.tick()
+                    break
                 for _ in range(duration2):
                     self.pyboy.tick()
                 self.pyboy.send_input(self.release_button[action2])   
@@ -207,10 +213,14 @@ class MarioExpert:
                     print('goomba jump when located left')
                     self.environment.prev_mario_x = self.environment.curr_mario_x
                     return (2, 2, 4, 4, False)
-                elif mario_y - goomba_y > 5 and  13 < goomba_x - mario_x < 20:
+                elif mario_y - goomba_y > 5 and  13 < goomba_x - mario_x < 20: #original: 13 < goomba_x - mario_x < 20
                     print("goomba above")
                     self.environment.prev_mario_x = self.environment.curr_mario_x
                     return (1, 5, None, None, True) 
+                elif  3 <= mario_y - goomba_y <= 8 and 1 < goomba_x - mario_x < 5 and self.environment._read_m(0xC20A) == 0x01: 
+                    print("Goomba unique for 1-2")
+                    self.environment.prev_mario_x = self.environment.curr_mario_x
+                    return (4, 5, None, None, False)
             #Turtle detection
             elif self.environment._read_m(address) == 0x04: 
                 turtle_addr = int(f"0xD1{i}3", 16) #x position
@@ -272,7 +282,7 @@ class MarioExpert:
         # on_pipe = self.on_pipe()
         # print("stuck val", self.environment.stuck)
         print(game_area)
-
+        
         
         if hole_found:
             print("Here 1")
